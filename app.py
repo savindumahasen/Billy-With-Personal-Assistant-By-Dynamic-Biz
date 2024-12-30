@@ -5,8 +5,8 @@ import streamlit as st
 
 # Allowed topics based on Dynamic Biz content
 allowed_topics = [
-    "What your company Offer", "what are the Stories", "what is yourWork", "Blog", "what are your Case Studies", "Contact Us",
-    "what type of Product Engineering offer", "Software Development", "Web Development", "Mobile Apps Development", "IT Consulting",
+    "company Offer", "Stories", "Work", "Blog", "Case Studies", "Contact Us",
+    "Product Engineering", "Software Development", "Web Development", "Mobile Appliocations development", "IT Consulting",
     "Digital Growth", "SEO", "Digital Strategy", "Social Media Marketing", "Digital Advertising", "Email Marketing",
     "Creative", "Content Creation", "Branding", "UI/UX Designing"
 ]
@@ -91,7 +91,7 @@ st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 st.markdown("<div class='chat-header'>Dynamic Bizz Smart Assistant 🤖</div>", unsafe_allow_html=True)
 
 # Input box styled as a search bar
-input_text = st.text_input("", placeholder="Ask me anything about Dynamic Biz...", key="user_input")
+input_text = st.text_input("", placeholder="Search by keyword regarding the Dynamic Bizz", key="user_input")
 
 # LLaMA Model setup (adjusting this for Hugging Face Hub)
 llm = HuggingFaceHub(
