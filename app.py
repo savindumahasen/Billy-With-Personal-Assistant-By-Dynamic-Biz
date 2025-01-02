@@ -1,148 +1,104 @@
-from langchain_community.llms import HuggingFaceHub
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
 import streamlit as st
+from reportlab.lib.pagesizes import letter
+from langchain_community.llms import HuggingFaceHub
+from langchain.prompts import ChatPromptTemplate
+from langchain.schema.output_parser import StrOutputParser
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_chroma import Chroma
+from langchain.schema.runnable import RunnablePassthrough
 
-# Allowed topics based on Dynamic Biz content
-allowed_topics = [
-    "company Offer", "Stories", "Work", "Blog", "Case Studies", "Contact Us",
-    "Product Engineering", "Software Development", "Web Development", "Mobile Appliocations development", "IT Consulting",
-    "Digital Growth", "SEO", "Digital Strategy", "Social Media Marketing", "Digital Advertising", "Email Marketing",
-    "Creative", "Content Creation", "Branding", "UI/UX Designing"
-]
-
-# Restricting the model to only respond based on Dynamic Biz content
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", "You are a helpful assistant only capable of answering questions related to Dynamic Biz services, including 'What We Offer,' 'Our Story,' 'Our Work,' 'Blog,' 'Case Studies,' and 'Contact Us.' Do not provide information outside of this scope."),
-        ("user", "Question: {question}")
-    ]
-)
-
-# Streamlit UI for chatbot
-st.set_page_config(
-    page_title="Dynamic Biz - Intelligent Chat Assistant",
-    page_icon="✨",
-    layout="wide",
-)
-
-# Custom CSS for styling
-st.markdown("""
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f9f9f9;
-        }
-        .chat-header {
-            text-align: center;
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #3b5998;
-            margin-bottom: 20px;
-        }
-        .user-input {
-            width: 100%;
-            padding: 10px;
-            border-radius: 25px;
-            border: 1px solid #ddd;
-            font-size: 1em;
-        }
-        .chat-bubble-user {
-            text-align: right;
-            margin: 10px 0;
-        }
-        .chat-bubble-user p {
-            display: inline-block;
-            background-color: #e9f5ff;
-            padding: 10px 15px;
-            border-radius: 15px;
-            color: #333;
-        }
-        .chat-bubble-bot {
-            text-align: left;
-            margin: 10px 0;
-        }
-        .chat-bubble-bot p {
-            display: inline-block;
-            background-color: #f1f0f0;
-            padding: 10px 15px;
-            border-radius: 15px;
-            color: #333;
-        }
-        .submit-button {
-            margin-top: 10px;
-            background-color: #4caf50;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 10px 20px;
-            font-size: 1em;
-            cursor: pointer;
-        }
-        .submit-button:hover {
-            background-color: #45a049;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# Main chat container
-st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
-
-st.markdown("<div class='chat-header'>Dynamic Bizz Smart Assistant 🤖</div>", unsafe_allow_html=True)
-
-# Input box styled as a search bar
-input_text = st.text_input("", placeholder="Search by keyword regarding the Dynamic Bizz", key="user_input")
-
-# LLaMA Model setup (adjusting this for Hugging Face Hub)
+# Initialize the HuggingFace model
 llm = HuggingFaceHub(
-    repo_id="mistralai/Mistral-7B-v0.1",  # Replace with the actual LLaMA model ID from Hugging Face
+    repo_id="mistralai/Mistral-7B-v0.1",
     model_kwargs={
         "temperature": 0.1,
         "max_new_tokens": 500,
         "repetition_penalty": 1.2,
         "stop_sequence": ["\n"]
     },
-    huggingfacehub_api_token="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"  # Ensure the API token is provided
+    huggingfacehub_api_token="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"
 )
 
+# Initialize the embedding model
+embedding_model = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-mpnet-base-v2"
+)
+
+# Initialize the output parser
 output_parser = StrOutputParser()
-chain = prompt | llm | output_parser
 
-# Display chatbot interaction
-if st.button("Submit", use_container_width=True):
-    if input_text:
-        # Check if the question relates to the allowed topics
-        is_allowed = any(topic.lower() in input_text.lower() for topic in allowed_topics)
-        
-        if not is_allowed:
-            response = "Error: I can only respond to questions related to the following topics: 'What We Offer', 'Our Story', 'Our Work', 'Blog', 'Case Studies', and 'Contact Us.' Please ask a question related to these topics."
-        else:
-            with st.spinner("🤔 Generating response..."):
-                response = chain.invoke({'question': input_text})
+# Define the template for the chat prompt
+template = """
+Answer the question using the provided context only.
 
-        # User query bubble
-        st.markdown(f"""
-            <div class="chat-bubble-user">
-                <p>{input_text}</p>
-            </div>
-        """, unsafe_allow_html=True)
+{question}
 
-        # Bot response bubble
-        st.markdown(f"""
-            <div class="chat-bubble-bot">
-                <p>{response}</p>
-            </div>
-        """, unsafe_allow_html=True)
+Context:
+{context}
+
+Answer:
+"""
+
+# Initialize the prompt with the template
+prompt = ChatPromptTemplate.from_template(template)
+
+# Function to set up the retriever from a PDF
+def setup_retriever_from_pdf(pdf_filename):
+    loader = PyPDFLoader(pdf_filename)
+    docs = loader.load()
+    vector_store = Chroma.from_documents(documents=docs, embedding=embedding_model)
+    retriever = vector_store.as_retriever()
+    return retriever
+
+# Function to define the chain
+def define_chain():
+    chain = (
+        RunnablePassthrough()  # Pass through input as is
+        | llm  # Process with HuggingFaceHub
+        | output_parser  # Parse the output
+    )
+    return chain
+
+# Streamlit UI configuration
+st.set_page_config(
+    page_title="Dynamic Biz - Intelligent Chat Assistant",
+    page_icon="✨",
+    layout="wide",
+)
+
+# Predefined PDF file name
+pdf_filename = "output.pdf"
+
+# Check if the PDF exists and load retriever
+try:
+    retriever = setup_retriever_from_pdf(pdf_filename)
+    st.success(f"Successfully loaded {pdf_filename} for processing.")
+except Exception as e:
+    st.error(f"Failed to load {pdf_filename}: {e}")
+    st.stop()
+
+# Streamlit input for user question
+st.title("Dynamic Biz Smart Assistant 🤖")
+question = st.text_input("Ask a question based on the content:")
+
+if st.button("Generate Response"):  # Button to generate response
+    if question:
+        with st.spinner("🤔 Generating response..."):
+            try:
+                # Retrieve relevant context
+                context_docs = retriever.get_relevant_documents(question)
+                context_text = "\n".join([doc.page_content for doc in context_docs])  # Combine document content
+
+                # Format the prompt with question and context
+                formatted_prompt = prompt.format(question=question, context=context_text)
+
+                # Define and invoke the chain
+                chain = define_chain()
+                response = chain.invoke(formatted_prompt)
+                st.success("Response generated successfully!")
+                st.write(f"**Answer:** {response}")
+            except Exception as e:
+                st.error(f"Error generating response: {e}")
     else:
         st.warning("Please enter a question!")
-
-st.markdown("</div>", unsafe_allow_html=True)  # Close chat container
-
-# Display relevant business sections (optional)
-st.markdown("""
-    <div class='section'>
-        <h2>What We Offer</h2>
-        <p>We love to create, innovate, and inspire. Let us help you build the future!</p>
-        <!-- Add further sections as needed -->
-    </div>
-""", unsafe_allow_html=True)
