@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-from reportlab.lib.pagesizes import letter
 from langchain_community.llms import HuggingFaceHub
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.output_parser import StrOutputParser
@@ -96,16 +95,13 @@ try:
         st.stop()
 
     retriever = setup_retriever_from_pdf(pdf_filename)
-    st.success(f"Successfully loaded {pdf_filename} for processing.")
 except FileNotFoundError as e:
     st.error(f"Error: {e}")
     st.stop()
 except Exception as e:
     # If PyPDFLoader fails, try using PyMuPDF as fallback
-    # st.warning(f"Error loading PDF with PyPDFLoader: {e}. Trying alternative method.")
     pdf_text = extract_text_from_pdf(pdf_filename)
     if pdf_text:
-        st.success(f"Text extracted using PyMuPDF.")
         retriever = None
     else:
         st.error(f"Failed to load PDF even with alternative method: {e}")
@@ -119,21 +115,33 @@ if st.button("Generate Response"):  # Button to generate response
     if question:
         with st.spinner("🤔 Generating response..."):
             try:
+                # Ensure that the question is restricted to the PDF content
                 if retriever:
-                    # Retrieve relevant context
+                    # Retrieve relevant context based on the question
                     context_docs = retriever.get_relevant_documents(question)
                     context_text = "\n".join([doc.page_content for doc in context_docs])  # Combine document content
+                    
+                    # If no context is found, inform the user
+                    if not context_text.strip():
+                        st.error("No relevant content found in the PDF for your question. Please ask something related to the document.")
+                        st.stop()
                 else:
                     # Fallback for when no retriever (PyMuPDF was used)
                     context_text = pdf_text
                 
-                # Format the prompt with question and context
+                # Check if context is empty after fallback
+                if not context_text.strip():
+                    st.error("No relevant content found in the PDF. Please ask a question related to the document.")
+                    st.stop()
+                
+                # Format the prompt with the question and context
                 formatted_prompt = prompt.format(question=question, context=context_text)
 
                 # Define and invoke the chain
                 chain = define_chain()
                 response = chain.invoke(formatted_prompt)
                 
+                # Display the response
                 st.success("Response generated successfully!")
                 st.write(f"**Answer:** {response}")
             except Exception as e:
