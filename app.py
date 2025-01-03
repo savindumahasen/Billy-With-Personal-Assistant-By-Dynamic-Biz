@@ -29,9 +29,11 @@ embedding_model = HuggingFaceEmbeddings(
 # Initialize the output parser
 output_parser = StrOutputParser()
 
-# Define the template for the chat prompt
+# Define the template for the chat prompt with stricter restrictions
 template = """
-Answer the question using the provided context only.
+You must strictly answer the question based only on the context provided. Do not generate any information outside the provided content. 
+
+The question must be answered based entirely on the context in the document. If the context does not contain relevant information, do not answer.
 
 {question}
 
@@ -115,7 +117,7 @@ if st.button("Generate Response"):  # Button to generate response
     if question:
         with st.spinner("🤔 Generating response..."):
             try:
-                # Ensure that the question is restricted to the PDF content
+                # Ensure the question is restricted to the document content
                 if retriever:
                     # Retrieve relevant context based on the question
                     context_docs = retriever.get_relevant_documents(question)
@@ -123,7 +125,7 @@ if st.button("Generate Response"):  # Button to generate response
                     
                     # If no context is found, inform the user
                     if not context_text.strip():
-                        st.error("No relevant content found in the PDF for your question. Please ask something related to the document.")
+                        st.error("No relevant content found in the document for your question. Please ask something related.")
                         st.stop()
                 else:
                     # Fallback for when no retriever (PyMuPDF was used)
@@ -131,19 +133,26 @@ if st.button("Generate Response"):  # Button to generate response
                 
                 # Check if context is empty after fallback
                 if not context_text.strip():
-                    st.error("No relevant content found in the PDF. Please ask a question related to the document.")
+                    st.error("No relevant content found in the document. Please ask a question related to the content.")
                     st.stop()
                 
-                # Format the prompt with the question and context
+                # Format the prompt with the question and the document context
                 formatted_prompt = prompt.format(question=question, context=context_text)
 
                 # Define and invoke the chain
                 chain = define_chain()
                 response = chain.invoke(formatted_prompt)
                 
+                # Extract the answer after "Answer:" keyword (if applicable)
+                answer_start = response.find("Answer:")
+                if answer_start != -1:
+                    answer = response[answer_start + len("Answer:"):].strip()
+                else:
+                    answer = response
+                
                 # Display the response
                 st.success("Response generated successfully!")
-                st.write(f"**Answer:** {response}")
+                st.write(f"**Answer:** {answer}")
             except Exception as e:
                 st.error(f"Error generating response: {e}")
     else:
