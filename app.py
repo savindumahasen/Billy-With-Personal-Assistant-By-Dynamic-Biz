@@ -8,6 +8,9 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_chroma import Chroma
 from langchain.schema.runnable import RunnablePassthrough
 import fitz  # PyMuPDF for alternative PDF loading
+import speech_recognition as sr
+from gtts import gTTS
+import io
 
 # Initialize the HuggingFace model
 llm = HuggingFaceHub(
@@ -48,7 +51,6 @@ prompt = ChatPromptTemplate.from_template(template)
 
 # Function to set up the retriever from a PDF
 def setup_retriever_from_pdf(pdf_filename):
-    # Check if PDF exists
     if not os.path.isfile(pdf_filename):
         raise FileNotFoundError(f"The PDF file '{pdf_filename}' does not exist.")
     
@@ -79,6 +81,35 @@ def define_chain():
     )
     return chain
 
+# Function for speech input (recognize speech)
+def get_speech_input():
+    recognizer = sr.Recognizer()
+    mic = sr.Microphone()
+
+    with mic as source:
+        recognizer.adjust_for_ambient_noise(source)
+        st.info("Listening for your question...")
+        try:
+            audio = recognizer.listen(source)
+            question = recognizer.recognize_google(audio)
+            st.write(f"You asked: {question}")
+            return question
+        except sr.UnknownValueError:
+            st.error("Sorry, I didn't catch that. Please try again.")
+            return None
+        except sr.RequestError as e:
+            st.error(f"Could not request results from Google Speech Recognition service; {e}")
+            return None
+
+# Function for text-to-speech (speak response)
+def speak_response(response):
+    tts = gTTS(response, lang='en')
+    tts.save("response.mp3")
+    
+    # Playing the response using Streamlit's audio player
+    audio_file = open("response.mp3", "rb").read()
+    st.audio(audio_file, format="audio/mp3")
+
 # Streamlit UI configuration
 st.set_page_config(
     page_title="Dynamic Biz - Intelligent Chat Assistant",
@@ -91,7 +122,6 @@ pdf_filename = "output.pdf"
 
 # Check if the PDF exists and load retriever
 try:
-    # Attempt to load PDF with PyPDFLoader or fall back to PyMuPDF
     if not os.path.isfile(pdf_filename):
         st.error(f"The PDF file '{pdf_filename}' was not found!")
         st.stop()
@@ -101,7 +131,6 @@ except FileNotFoundError as e:
     st.error(f"Error: {e}")
     st.stop()
 except Exception as e:
-    # If PyPDFLoader fails, try using PyMuPDF as fallback
     pdf_text = extract_text_from_pdf(pdf_filename)
     if pdf_text:
         retriever = None
@@ -109,50 +138,49 @@ except Exception as e:
         st.error(f"Failed to load PDF even with alternative method: {e}")
         st.stop()
 
-# Streamlit input for user question
+# Streamlit input for user question or voice input
 st.title("Dynamic Biz Smart Assistant 🤖")
-question = st.text_area("Ask a question based on the content:")
+
+question_option = st.radio("Choose Input Method", ["Type a Question", "Ask by Voice"])
+
+if question_option == "Type a Question":
+    question = st.text_area("Ask a question based on the content:")
+else:
+    question = get_speech_input()
 
 if st.button("Generate Response"):  # Button to generate response
     if question:
         with st.spinner("🤔 Generating response..."):
             try:
-                # Ensure the question is restricted to the document content
                 if retriever:
-                    # Retrieve relevant context based on the question
                     context_docs = retriever.get_relevant_documents(question)
                     context_text = "\n".join([doc.page_content for doc in context_docs])  # Combine document content
                     
-                    # If no context is found, inform the user
                     if not context_text.strip():
                         st.error("No relevant content found in the document for your question. Please ask something related.")
                         st.stop()
                 else:
-                    # Fallback for when no retriever (PyMuPDF was used)
                     context_text = pdf_text
                 
-                # Check if context is empty after fallback
                 if not context_text.strip():
                     st.error("No relevant content found in the document. Please ask a question related to the content.")
                     st.stop()
                 
-                # Format the prompt with the question and the document context
                 formatted_prompt = prompt.format(question=question, context=context_text)
-
-                # Define and invoke the chain
                 chain = define_chain()
                 response = chain.invoke(formatted_prompt)
                 
-                # Extract the answer after "Answer:" keyword (if applicable)
                 answer_start = response.find("Answer:")
                 if answer_start != -1:
                     answer = response[answer_start + len("Answer:"):].strip()
                 else:
                     answer = response
                 
-                # Display the response
                 st.success("Response generated successfully!")
                 st.write(f"**Answer:** {answer}")
+
+                # Speak the response
+                speak_response(answer)
             except Exception as e:
                 st.error(f"Error generating response: {e}")
     else:
