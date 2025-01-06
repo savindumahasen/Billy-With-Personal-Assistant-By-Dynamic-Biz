@@ -10,7 +10,6 @@ from langchain.schema.runnable import RunnablePassthrough
 import fitz  # PyMuPDF for alternative PDF loading
 import speech_recognition as sr
 from gtts import gTTS
-import io
 
 # Initialize the HuggingFace model
 llm = HuggingFaceHub(
@@ -32,7 +31,7 @@ embedding_model = HuggingFaceEmbeddings(
 # Initialize the output parser
 output_parser = StrOutputParser()
 
-# Define the template for the chat prompt with stricter restrictions
+# Define the template for the chat prompt
 template = """
 You must strictly answer the question based only on the context provided. Do not generate any information outside the provided content. 
 
@@ -117,6 +116,9 @@ st.set_page_config(
     layout="wide",
 )
 
+# Add title
+st.title("Dynamic Biz Smart Assistant 🤖")
+
 # Predefined PDF file name
 pdf_filename = "output.pdf"
 
@@ -138,13 +140,46 @@ except Exception as e:
         st.error(f"Failed to load PDF even with alternative method: {e}")
         st.stop()
 
-# Streamlit input for user question or voice input
-st.title("Dynamic Biz Smart Assistant 🤖")
+# Initialize chat history in session state
+if "chat_history" not in st.session_state:
+    st.session_state["chat_history"] = []
 
+# Handle "New Chat" button
+if st.button("New Chat"):
+    st.session_state["chat_history"] = []  # Clear chat history
+    st.session_state["input_question"] = ""  # Clear input question
+    st.rerun()  # Refresh the app to start a new session
+
+# Display chat history (ChatGPT-like UI)
+if st.session_state["chat_history"]:
+    for entry in st.session_state["chat_history"]:
+        # Style for the user question
+        st.markdown(
+            f"""
+            <div style="display: flex; justify-content: flex-start;">
+                <div style="background-color: #D1E8E2; border-radius: 15px; padding: 10px; max-width: 60%; font-size: 14px; margin-bottom: 10px;">
+                    <strong>You:</strong> {entry['question']}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Style for the assistant's response
+        st.markdown(
+            f"""
+            <div style="display: flex; justify-content: flex-end;">
+                <div style="background-color: #A7C7E7; border-radius: 15px; padding: 10px; max-width: 60%; font-size: 14px; margin-bottom: 10px;">
+                    <strong>Assistant:</strong> {entry['response']}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+else:
+    st.info("No chat history available. Ask a question to start the conversation.")
+
+# Input method for questions
 question_option = st.radio("Choose Input Method", ["Type a Question", "Ask by Voice"])
 
 if question_option == "Type a Question":
-    question = st.text_area("Ask a question based on the content:")
+    question = st.text_area("Ask a question based on the content:", key="input_question")
 else:
     question = get_speech_input()
 
@@ -170,7 +205,7 @@ if st.button("Generate Response"):  # Button to generate response
                 chain = define_chain()
                 response = chain.invoke(formatted_prompt)
                 
-                answer_start = response.find("Answer:")
+                answer_start = response.find("Answer:")  # Find the answer part in the response
                 if answer_start != -1:
                     answer = response[answer_start + len("Answer:"):].strip()
                 else:
@@ -178,6 +213,9 @@ if st.button("Generate Response"):  # Button to generate response
                 
                 st.success("Response generated successfully!")
                 st.write(f"**Answer:** {answer}")
+
+                # Append to chat history here after generating the response
+                st.session_state["chat_history"].append({"question": question, "response": answer})
 
                 # Speak the response
                 speak_response(answer)
