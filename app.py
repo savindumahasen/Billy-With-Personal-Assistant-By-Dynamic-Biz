@@ -13,14 +13,14 @@ from gtts import gTTS
 
 # Initialize the HuggingFace model
 llm = HuggingFaceHub(
-    repo_id="mistralai/Mistral-7B-v0.1",
+    repo_id="mistralai/Mistral-Nemo-Instruct-2407",
     model_kwargs={
         "temperature": 0.1,
         "max_new_tokens": 500,
         "repetition_penalty": 1.2,
         "stop_sequence": ["\n"]
     },
-    huggingfacehub_api_token="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"
+    huggingfacehub_api_token="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"
 )
 
 # Initialize the embedding model
@@ -79,6 +79,19 @@ def define_chain():
         | output_parser  # Parse the output
     )
     return chain
+
+# Function to detect inappropriate questions
+def is_inappropriate(question):
+    """Detect inappropriate or off-topic questions."""
+    inappropriate_keywords = [
+        "sex", "porn", "explicit", "nude", "anal", "sexual", "xxx"
+    ]
+    
+    question_lower = question.lower()
+    for keyword in inappropriate_keywords:
+        if keyword in question_lower:
+            return True
+    return False
 
 # Function for speech input (recognize speech)
 def get_speech_input():
@@ -153,7 +166,6 @@ if st.button("New Chat"):
 # Display chat history (ChatGPT-like UI)
 if st.session_state["chat_history"]:
     for entry in st.session_state["chat_history"]:
-        # Style for the user question
         st.markdown(
             f"""
             <div style="display: flex; justify-content: flex-start;">
@@ -163,7 +175,6 @@ if st.session_state["chat_history"]:
             </div>
             """, unsafe_allow_html=True)
         
-        # Style for the assistant's response
         st.markdown(
             f"""
             <div style="display: flex; justify-content: flex-end;">
@@ -185,41 +196,41 @@ else:
 
 if st.button("Generate Response"):  # Button to generate response
     if question:
-        with st.spinner("🤔 Generating response..."):
-            try:
-                if retriever:
-                    context_docs = retriever.get_relevant_documents(question)
-                    context_text = "\n".join([doc.page_content for doc in context_docs])  # Combine document content
+        if is_inappropriate(question):
+            st.error("Your question is deemed inappropriate or off-topic. Please ask a valid question.")
+        else:
+            with st.spinner("🤔 Generating response..."):
+                try:
+                    if retriever:
+                        context_docs = retriever.get_relevant_documents(question)
+                        context_text = "\n".join([doc.page_content for doc in context_docs])
+                        
+                        if not context_text.strip():
+                            st.error("No relevant content found in the document for your question. Please ask something related.")
+                            st.stop()
+                    else:
+                        context_text = pdf_text
                     
                     if not context_text.strip():
-                        st.error("No relevant content found in the document for your question. Please ask something related.")
+                        st.error("No relevant content found in the document. Please ask a question related to the content.")
                         st.stop()
-                else:
-                    context_text = pdf_text
-                
-                if not context_text.strip():
-                    st.error("No relevant content found in the document. Please ask a question related to the content.")
-                    st.stop()
-                
-                formatted_prompt = prompt.format(question=question, context=context_text)
-                chain = define_chain()
-                response = chain.invoke(formatted_prompt)
-                
-                answer_start = response.find("Answer:")  # Find the answer part in the response
-                if answer_start != -1:
-                    answer = response[answer_start + len("Answer:"):].strip()
-                else:
-                    answer = response
-                
-                st.success("Response generated successfully!")
-                st.write(f"**Answer:** {answer}")
+                    
+                    formatted_prompt = prompt.format(question=question, context=context_text)
+                    chain = define_chain()
+                    response = chain.invoke(formatted_prompt)
+                    
+                    answer_start = response.find("Answer:")
+                    if answer_start != -1:
+                        answer = response[answer_start + len("Answer:"):].strip()
+                    else:
+                        answer = response
+                    
+                    st.success("Response generated successfully!")
+                    st.write(f"**Answer:** {answer}")
 
-                # Append to chat history here after generating the response
-                st.session_state["chat_history"].append({"question": question, "response": answer})
-
-                # Speak the response
-                speak_response(answer)
-            except Exception as e:
-                st.error(f"Error generating response: {e}")
+                    st.session_state["chat_history"].append({"question": question, "response": answer})
+                    speak_response(answer)
+                except Exception as e:
+                    st.error(f"Error generating response: {e}")
     else:
         st.warning("Please enter a question!")
