@@ -11,6 +11,10 @@ import fitz  # PyMuPDF for alternative PDF loading
 import speech_recognition as sr
 from gtts import gTTS
 
+# Set the port number for the Streamlit server
+os.environ["STREAMLIT_SERVER_PORT"] = "8501"  # Change this to your desired port
+os.environ["STREAMLIT_SERVER_ADDRESS"] = "localhost"  # Optional: Set the host to localhost or 0.0.0.0
+
 # Initialize the HuggingFace model
 llm = HuggingFaceHub(
     repo_id="mistralai/Mistral-Nemo-Instruct-2407",
