@@ -2,5 +2,5 @@
 
 # Simple-Chatbot
 This is a simple chatbot like chatgbt.This bot is created for dynamic bizz software engineering company. To create this chatbot use the google colab platform, Langchain python framework, RAG architecture and  Huggingface  free open LLM model (Larger Language Model) called Mistral. Its' LLM model version is Mistral-7B-v0.1. This hugging face LLM model link is shown below
-https://huggingface.co/mistralai/Mistral-7B-v0.1
+https://huggingface.co/mistralai/Mistral-Nemo-Instruct-2407
 
