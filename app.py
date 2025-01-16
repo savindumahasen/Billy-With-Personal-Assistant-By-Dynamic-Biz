@@ -200,7 +200,15 @@ else:
 
 if st.button("Generate Response"):  # Button to generate response
     if question:
-        if is_inappropriate(question):
+        # Check for greeting keywords
+        greeting_keywords = ["hello", "hi", "hey", "Goodmorning"]
+        if any(keyword in question.lower() for keyword in greeting_keywords):
+            greeting_response = "Hello! How can I assist you today?"
+            st.success("Response generated successfully!")
+            st.write(f"**Answer:** {greeting_response}")
+            st.session_state["chat_history"].append({"question": question, "response": greeting_response})
+            speak_response(greeting_response)
+        elif is_inappropriate(question):
             st.error("Your question is deemed inappropriate or off-topic. Please ask a valid question.")
         else:
             with st.spinner("🤔 Generating response..."):
