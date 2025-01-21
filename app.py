@@ -84,18 +84,31 @@ def define_chain():
     )
     return chain
 
-# Function to detect inappropriate questions
+# Function to detect inappropriate or programming-related questions
 def is_inappropriate(question):
-    """Detect inappropriate or off-topic questions."""
+    """Detect inappropriate or restricted questions."""
+    # Inappropriate and restricted keywords
     inappropriate_keywords = [
-        "sex", "porn", "explicit", "nude", "anal", "sexual", "xxx"
+        "sex", "porn", "explicit", "nude", "sexual", "xxx", "violence"
     ]
-    
+    restricted_keywords = [
+        "python", "java", "c++", "javascript", "flask", "streamlit", "ai", "machine learning","laravel","generative ai","agentic ai"
+        "html", "css", "php", "react", "angular", "typescript", "nodejs", "mongodb", "sql","Ruby","C","R","viewjs","nextjs","django","express","dart",
+        "csharp"," c#", "c","go"
+    ]
+
     question_lower = question.lower()
-    for keyword in inappropriate_keywords:
-        if keyword in question_lower:
-            return True
-    return False
+
+    # Check for inappropriate keywords
+    if any(keyword in question_lower for keyword in inappropriate_keywords):
+        return True  # Inappropriate content detected
+
+    # Check for restricted keywords
+    if any(keyword in question_lower for keyword in restricted_keywords):
+        return True  # Restricted content detected
+
+    return False  # Question is appropriate
+
 
 # Function for speech input (recognize speech)
 def get_speech_input():
