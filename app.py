@@ -92,9 +92,10 @@ def is_inappropriate(question):
         "sex", "porn", "explicit", "nude", "sexual", "xxx", "violence"
     ]
     restricted_keywords = [
-        "python", "java", "c++", "javascript", "flask", "streamlit", "ai", "machine learning","laravel","generative ai","agentic ai"
-        "html", "css", "php", "react", "angular", "typescript", "nodejs", "mongodb", "sql","Ruby","C","R","viewjs","nextjs","django","express","dart",
-        "csharp"," c#", "c","go"
+        "python","java","c++","javascript","flask","streamlit","html","css","php","js","csharp","c#","mysql","mongodb","go",
+        "react","angular","django","fsharp","f#","swift","perl","matlab", "rust","delphi","objectpascal","pascal","d","logo",
+        "cobol","kotlin","julia","abap","scala","scheme","prolog","ada","lisp","apex","lua","fortran","haskell","hack","tcl","smalltalk", 
+        "visualfoxpro","splidity","powershell","github","gitlan"
     ]
 
     question_lower = question.lower()
