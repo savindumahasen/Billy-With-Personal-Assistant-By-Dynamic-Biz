@@ -93,9 +93,7 @@ def is_inappropriate(question):
     ]
     restricted_keywords = [
         "python","java","c++","javascript","flask","streamlit","html","css","php","js","csharp","c#","mysql","mongodb","go",
-        "react","angular","django","fsharp","f#","swift","perl","matlab", "rust","delphi","objectpascal","pascal","d","logo",
-        "cobol","kotlin","julia","abap","scala","scheme","prolog","ada","lisp","apex","lua","fortran","haskell","hack","tcl","smalltalk", 
-        "visualfoxpro","splidity","powershell","github","gitlan"
+        "react","angular","django","fsharp","f#","swift","perl","matlab","rust"
     ]
 
     question_lower = question.lower()
